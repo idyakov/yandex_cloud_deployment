@@ -1,0 +1,213 @@
+
+terraform {
+  required_providers {
+    yandex = {
+      source  = "yandex-cloud/yandex"
+      version = "~> 0.84.0"
+    }
+  }
+}
+
+provider "yandex" {
+  cloud_id  = var.cloud_id
+  folder_id = var.folder_id
+  zone      = var.zone
+}
+
+
+resource "yandex_vpc_network" "network" {
+  name = "network"
+}
+
+resource "yandex_vpc_subnet" "subnet" {
+  name           = "subnet"
+  zone           = var.zone
+  network_id     = yandex_vpc_network.network.id
+  v4_cidr_blocks = ["10.2.0.0/16"]
+}
+
+# Security group
+resource "yandex_vpc_security_group" "security_group" {
+  name        = "security-group"
+  description = "Security group for all instances"
+  network_id  = yandex_vpc_network.network.id
+
+  ingress {
+    protocol       = "TCP"
+    description    = "Allow SSH connections"
+    v4_cidr_blocks = ["0.0.0.0/0"]
+    port           = 22
+  }
+
+  egress {
+    protocol       = "ANY"
+    description    = "Allow outgoing traffic"
+    v4_cidr_blocks = ["0.0.0.0/0"]
+    from_port      = 0
+    to_port        = 65535
+  }
+}
+
+# 1C Server
+resource "yandex_compute_instance" "server_1c" {
+  name        = "server-1c"
+  platform_id = "standard-v1"
+  zone        = var.zone
+
+  resources {
+    cores  = 2
+    memory = 16
+  }
+
+  boot_disk {
+    initialize_params {
+      image_id = var.ubuntu_image_id
+      size     = 240
+      type     = "network-ssd"
+    }
+  }
+
+  network_interface {
+    subnet_id = yandex_vpc_subnet.subnet.id
+    nat       = true
+  }
+
+  metadata = {
+    ssh-keys = "ubuntu:${file(var.public_key_path)}"
+  }
+}
+
+# Bitrix24 server
+resource "yandex_compute_instance" "server_bitrix" {
+  name        = "server-bitrix"
+  platform_id = "standard-v1"
+  zone        = var.zone
+
+  resources {
+    cores  = 2
+    memory = 8
+  }
+
+  boot_disk {
+    initialize_params {
+      image_id = var.ubuntu_image_id
+      size     = 100
+      type     = "network-ssd"
+    }
+  }
+
+  network_interface {
+    subnet_id = yandex_vpc_subnet.subnet.id
+    nat       = true
+  }
+
+  metadata = {
+    ssh-keys = "ubuntu:${file(var.public_key_path)}"
+  }
+}
+
+# web-server store
+resource "yandex_compute_instance" "server_web" {
+  name        = "server-web"
+  platform_id = "standard-v1"
+  zone        = var.zone
+
+  resources {
+    cores  = 2
+    memory = 4
+  }
+
+  boot_disk {
+    initialize_params {
+      image_id = var.ubuntu_image_id
+      size     = 50
+      type     = "network-ssd"
+    }
+  }
+
+  network_interface {
+    subnet_id = yandex_vpc_subnet.subnet.id
+    nat       = true
+  }
+
+  metadata = {
+    ssh-keys = "ubuntu:${file(var.public_key_path)}"
+  }
+}
+
+# PostgreSQL claster
+resource "yandex_mdb_postgresql_cluster" "postgresql_cluster" {
+  name        = "postgresql-cluster"
+  environment = "PRODUCTION"
+  network_id  = yandex_vpc_network.network.id
+
+  config {
+    version = 14
+    resources {
+      resource_preset_id = "s2.micro"
+      disk_type_id       = "network-ssd"
+      disk_size          = 20
+    }
+  }
+
+  host {
+    zone      = var.zone
+    subnet_id = yandex_vpc_subnet.subnet.id
+  }
+
+  database {
+    name  = "db_1c"
+    owner = "user_1c"
+  }
+
+  database {
+    name  = "db_bitrix"
+    owner = "user_bitrix"
+  }
+
+  user {
+    name     = "user_1c"
+    password = var.db_password_1c
+    permission {
+      database_name = "db_1c"
+    }
+  }
+
+  user {
+    name     = "user_bitrix"
+    password = var.db_password_bitrix
+    permission {
+      database_name = "db_bitrix"
+    }
+  }
+}
+
+# Variables
+variable "cloud_id" {
+  type = string
+}
+
+variable "folder_id" {
+  type = string
+}
+
+variable "zone" {
+  type    = string
+  default = "ru-central1-a"
+}
+
+variable "ubuntu_image_id" {
+  type = string
+}
+
+variable "public_key_path" {
+  type = string
+}
+
+variable "db_password_1c" {
+  type = string
+}
+
+variable "db_password_bitrix" {
+  type = string
+}
