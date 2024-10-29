@@ -207,7 +207,7 @@ variable "public_key_path" {
 variable "db_password_1c" {
   type = string
 }
-
+# test password
 variable "db_password_bitrix" {
   type = string
 }
