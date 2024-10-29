@@ -1,26 +1,25 @@
-This code creates the following infrastructure:
+![](photo_2024-09-24_08-54-04.jpg)
 
-Network and subnet for all resources.
-Security group for access control.
-Server for 1C with 16 GB RAM and 240 GB SSD disk.
-Server for Bitrix24.
-Separate web server for the "store".
-PostgreSQL cluster for 1C and Bitrix databases.
+This diagram illustrates a cloud infrastructure setup in the Yandex Cloud environment, specifically within the kz-1a availability zone. Here’s a breakdown of the components:
 
-Important points:
+Internet Access:
 
-You will need to specify values for variables such as cloud_id, folder_id, ubuntu_image_id, public_key_path, and passwords for databases.
-Resource settings (e.g., number of cores) may require adjustment depending on your specific needs.
-The security group is configured to allow SSH access. For production environments, it is recommended to restrict access to only specific IP addresses.
-For VPN setup, you will need additional configuration that can be added to this code.
+The alioth.kz domain represents external internet access to the infrastructure.
+Network Load Balancer:
 
-To deploy this infrastructure:
+Two Network Load Balancers (NLBs) handle inbound traffic.
+Traffic from the internet arrives via HTTPS and is distributed to virtual machines (VMs) over HTTP.
+Auto Scaling Groups:
 
-Save this code in a file with a .tf extension.
-Create a terraform.tfvars file and specify values for all variables in it.
-Run the following commands:
+1C Auto Scaling Group:
+This group contains two virtual machines within the subnet 10.0.0.0/24.
+BTX24 Auto Scaling Group:
+Another group with two virtual machines, but within the subnet 10.0.1.0/24.
+These groups allow the infrastructure to scale automatically based on demand.
+Database and Object Storage:
 
-Copyterraform init
-terraform plan
-terraform apply
-After deployment, you will need to configure the servers, install the necessary software (1C, Bitrix24), and set up the database connection.
+PostgreSQL Managed Clusters:
+Two PostgreSQL databases managed by Yandex, likely serving different purposes for the 1C and BTX24 applications.
+Yandex Object Storage:
+This storage component serves as centralized storage, potentially for files and backups, and is accessible to both auto-scaling groups.
+In summary, the diagram depicts a scalable and distributed cloud environment in Yandex Cloud with load balancing, database management, and storage services, allowing the infrastructure to handle high availability and scalability for the 1C and BTX24 applications.
